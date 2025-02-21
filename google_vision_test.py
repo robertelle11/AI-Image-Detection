@@ -2,7 +2,7 @@ import requests
 import base64
 
 # Replace with your actual Google Cloud Vision API key
-API_KEY = "AIzaSyBMcY-_vzB7WycgYPmxcBf8CZxGCTi92DM"
+API_KEY = "Put api key here"
 
 def detect_landmark(image_path):
     """Detects landmarks in an image and returns their names and locations"""
