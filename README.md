@@ -2,7 +2,7 @@
 
 ---Before trying either of these files 2 seperate folders need to be downloaded that I sent as a Google Drvie since the files are too big for github. 
 -train folder - dataset containing a lot of images to train our model 
--dataset folder - contains 2 files that will be used in the gld_test, those files are train.csv, and train_label_to_category.csv.
+-dataset folder - contains 2 files that will be used in the gld_test, those files are train.csv, and train_label_to_category.csv. You can keep these in a folder, I didn't, just make sure the path is right when testing.
 
 gld_test.py - This file tests the Google Landmarks Dataset, in order to run this file you need to download the dataset of images in the train folder, as well as download the following .csv files - train.csv, and train_label_to_category.csv. 
 
