@@ -24,6 +24,7 @@ google_vision_test.py - This file uses the Google vision api using an api key. I
 Correct output should look like this
 _______________________________________________________________________
 Detected Landmark: Frederiksborg Castle
-Location: 55.93496520000001, 12.3012724
+Coordinates: 55.93496520000001, 12.3012724
+Real-World Location: Indre Slotsgård, Hillerødsholm, Hillerød, Hillerød Kommune, Region Hovedstaden, 3400, Danmark
 
 In the future if we get both of these working for everyone, these resources can be combined to make a very useful dataset. 
