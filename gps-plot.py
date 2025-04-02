@@ -53,7 +53,7 @@ def plot_on_map(lat, lon, image_path):
     plt.show()
 
 # Example usage
-image_path = "big-house.jpg"  # Replace with the actual image path
+image_path = "your-image.jpg"  ######### Replace with the actual image path
 latitude, longitude = get_gps_info(image_path)
 
 if latitude and longitude:
