@@ -1,5 +1,21 @@
 # AI-Image-Detection
 
+_________________________________________________________________________________________________________________________________
+
+gps-plot.py = plots the coordinates from both the Landmarks & StreetView Datasets onto a map to give us an idea of where our images are located. 
+
+************New Task - Dataset Team*********************
+find images in the following areas - United States [preferably south like Louisiana area, & Yellowstone area, Canada, Middle East-[Saudi Arabia], China, North/Central Africa
+
+upload the actual images to philip's google drive = https://drive.google.com/drive/u/1/folders/1KGRL6GmgpFKY3N46CDj6s2PPgypr7N1n
+
+Any images added must be updated in the extra_images.csv in the following format - File_Path,Latitude,Longitude. Don't worry about the file path as once all the images we have are uploaded, they will be renamed and organized later. Once we have enough images in our new dataset [extra images], we'll plot that along with the other 2 datasets and the AI team should have enough to work with. 
+
+
+
+
+Testing Setup
+_________________________________________________________________________________________________________
 ---Before trying either of these files 2 seperate folders need to be downloaded that I sent as a Google Drvie since the files are too big for github. 
 
 -train folder - dataset containing a lot of images to train our model 
