@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.text.Text?>
+
+<AnchorPane prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/23" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.googlemap.Splash">
+   <children>
+      <Text layoutX="84.0" layoutY="60.0" strokeType="OUTSIDE" strokeWidth="0.0" text="AI Image Detection:CSI4999 Project App For Oakland University&#10;&#10;Credits: Cassie Allard, Alan Shen, Justin DePorter, Michael Berman, Robert Elle, Michael Szpotek, Philip Przekora,Matthew Robertson, Noah Pontzer" wrappingWidth="431.47003173828125" />
+      <Button layoutX="234.0" layoutY="200.0" mnemonicParsing="false" onAction="#time" text="start" />
+   </children>
+</AnchorPane>

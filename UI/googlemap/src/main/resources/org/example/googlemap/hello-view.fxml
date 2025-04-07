@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.text.Text?>
+
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="465.0" prefWidth="635.0" xmlns="http://javafx.com/javafx/23" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.googlemap.HelloController">
+   <children>
+      <ImageView fx:id="imageView" fitHeight="465.0" fitWidth="635.0" onDragDropped="#dragimagedropped" onDragOver="#dragimageover" pickOnBounds="true" preserveRatio="true" />
+      <AnchorPane layoutX="435.0" layoutY="395.0" prefHeight="69.0" prefWidth="200.0">
+         <children>
+            <ToggleButton fx:id="toggleButton" layoutX="61.0" layoutY="10.0" mnemonicParsing="false" onAction="#onclick" prefHeight="37.0" prefWidth="110.0" text="ToggleButton" />
+         </children>
+      </AnchorPane>
+      <AnchorPane fx:id="anchorPane3" layoutX="-4.0" prefHeight="59.0" prefWidth="641.0">
+         <children>
+            <Label layoutX="19.0" layoutY="21.0" prefHeight="18.0" prefWidth="142.0" text="Label" />
+         </children>
+      </AnchorPane>
+      <AnchorPane fx:id="anchorPane1" layoutX="14.0" layoutY="152.0" prefHeight="175.0" prefWidth="200.0">
+         <children>
+            <Text layoutX="10.0" layoutY="36.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Text" wrappingWidth="179.33333333333331" />
+            <Text layoutX="10.0" layoutY="66.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Text" wrappingWidth="179.33333333333331" />
+            <Text layoutX="10.0" layoutY="127.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Text" wrappingWidth="179.33333333333331" />
+         </children>
+      </AnchorPane>
+      <AnchorPane fx:id="anchorPane2" layoutX="4.0" layoutY="296.0" prefHeight="155.0" prefWidth="200.0">
+         <children>
+            <Text layoutX="14.0" layoutY="90.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Text" wrappingWidth="80.0000279744466" />
+            <TextField layoutY="31.0" promptText="Insert image link" />
+         </children>
+      </AnchorPane>
+   </children>
+</AnchorPane>
