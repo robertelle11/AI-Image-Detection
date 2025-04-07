@@ -7,9 +7,13 @@ gps-plot.py = plots the coordinates from both the Landmarks & StreetView Dataset
 ************New Task - Dataset Team*********************
 find images in the following areas - United States [preferably south like Louisiana area, & Yellowstone area, Canada, Middle East-[Saudi Arabia], China, North/Central Africa
 
+
 upload the actual images to philip's google drive = https://drive.google.com/drive/u/1/folders/1KGRL6GmgpFKY3N46CDj6s2PPgypr7N1n
 
+
 Any images added must be updated in the extra_images.csv in the following format - File_Path,Latitude,Longitude. Don't worry about the file path as once all the images we have are uploaded, they will be renamed and organized later. Once we have enough images in our new dataset [extra images], we'll plot that along with the other 2 datasets and the AI team should have enough to work with. 
+
+
 Here's a reference picture of what we need to update
 ![1-plottedpoints-landmarks+streetview](https://github.com/user-attachments/assets/6a4f0b0a-fdfe-4491-a158-b9579f7f0a6b)
 
