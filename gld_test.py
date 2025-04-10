@@ -45,7 +45,7 @@ def get_coordinates_from_wikidata(category_name):
     if category_name == "Unknown":
         return None
 
-    wikidata_url = f"https://www.wikidata.org/w/api.php"
+    wikidata_url = "https://www.wikidata.org/w/api.php"
     params = {
         "action": "wbsearchentities",
         "search": category_name,
@@ -94,6 +94,5 @@ def locate_image_info(image_id):
 
 # Example usage
 image_id = "002a196a7a4d4e48"
-#image_id = "002a636eb80ee968"  # Replace with a real image ID from the dataset
 locate_image_info(image_id)
 
