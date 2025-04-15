@@ -5,10 +5,12 @@ import pydeck as pdk
 import requests
 import json
 import os
-# import gld_test
-# import google_vision_test
-# import gps_plot
-# import gsv_test
+from tests import gld_test
+from tests import google_vision_test
+from tests import gsv_test
+from scripts import filter_images
+from scripts import gps_plot
+
 
 st.set_page_config(page_title="AI Image Geolocation", layout="centered")
 st.title("🌍 AI-Powered Image Geolocation")
