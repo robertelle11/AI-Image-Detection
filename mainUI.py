@@ -1,4 +1,6 @@
 # mainUIs.py
+
+'''
 import streamlit as st
 from PIL import Image
 import gps_plot as predict_location
@@ -30,3 +32,4 @@ if uploaded_file:
             st.markdown(f"**Coordinates:** {l_lat}, {l_lon}")
 
         st.map({"lat": [lat], "lon": [lon]})
+'''
