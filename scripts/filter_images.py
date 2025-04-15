@@ -1,9 +1,10 @@
 import os
 import pandas as pd
+from pathlib import Path
 
-folder_path = r"C:\Users\mgr61\Downloads\africa_images\Streetview_Image_Dataset"
-input_csv = r"C:\Users\mgr61\OneDrive\Documents\africa_coordinates.csv"
-output_csv = r"C:\Users\mgr61\OneDrive\Documents\africa_images.csv"
+folder_path = path = Path(__file__).parent / r"..\spreadsheets"
+input_csv = path = Path(__file__).parent / r"..\random_canadas_images.csv"
+output_csv = path = Path(__file__).parent / r"..\canada_images.csv"
 column = "File Path"
 start = 50000
 ext = ".png"
