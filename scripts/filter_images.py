@@ -6,7 +6,7 @@ folder_path = path = Path(__file__).parent / r"..\spreadsheets"
 input_csv = path = Path(__file__).parent / r"..\random_canadas_images.csv"
 output_csv = path = Path(__file__).parent / r"..\canada_images.csv"
 column = "File Path"
-start = 50000
+start = 11600
 ext = ".png"
 
 df = pd.read_csv(input_csv)
