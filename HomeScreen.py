@@ -8,7 +8,7 @@ import os
 # import gld_test
 # import google_vision_test
 # import gps_plot
-import gsv_test
+# import gsv_test
 
 st.set_page_config(page_title="AI Image Geolocation", layout="centered")
 st.title("🌍 AI-Powered Image Geolocation")
