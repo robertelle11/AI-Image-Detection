@@ -10,6 +10,7 @@ from tests import google_vision_test
 from tests import gsv_test
 from scripts import filter_images
 from scripts import gps_plot
+import train_model
 
 
 st.set_page_config(page_title="AI Image Geolocation", layout="centered")
