@@ -13,21 +13,19 @@ import gsv_test
 st.set_page_config(page_title="AI Image Geolocation", layout="centered")
 st.title("🌍 AI-Powered Image Geolocation")
 
-st.sidebar.success("Select a demo above.")
-
-uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+st.sidebar.success("Home Page.")
 
 st.markdown(
     """
     AI-Image-Detection develops an AI-powered system that determines the geographic location of an image using machine learning, computer vision, and external data sources. The system analyzes visual elements such as landmarks, terrain, and architectural styles to generate an estimated location. A trained machine learning model, combined with geolocated datasets and API integrations, enhances accuracy and confidence in predictions. This tool is designed to support researchers, journalists, and digital investigators in verifying image origins and conducting location-based analysis. By combining advanced AI techniques with geospatial data, our system provides a reliable solution for image geolocation in various investigative and analytical applications.
     AI-Image-Detection is a project that is CSI4999 - Senior Capstone Project for the School of Engineering and Computer Science at Oakland University in Rochester, MI, USA.
-    
     The Contributors to this Project are: Cassie Allard, Alan Shen, Justin DePorter, Michael Berman, Robert Elle, Michael Szpotek, Philip Przekora, Matthew Robertson, and Noah Pontzer.
 
     README.md - This file contains the information about the project, how to set it up, and how to run it.
 
-    Excerpt From "REAMDME.md"
-    gps-plot.py = plots the coordinates from both the Landmarks & StreetView Datasets onto a map to give us an idea of where our images are located.
+    
+Excerpt From "REAMDME.md"
+gps-plot.py = plots the coordinates from both the Landmarks & StreetView Datasets onto a map to give us an idea of where our images are located.
 
 New Task - Dataset Team********* find images in the following areas - United States [preferably south like Louisiana area, & Yellowstone area, Canada, Middle East-[Saudi Arabia], China, North/Central Africa
 
