@@ -1,0 +1,4 @@
+*.jpg
+test.csv
+train.csv
+train_label_to_category.csv
