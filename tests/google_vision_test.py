@@ -104,7 +104,7 @@ def convert_to_degrees(value):
     try:
         d, m, s = value
         return d + (m / 60.0) + (s / 3600.0)
-    except:
+    except Exception:
         return None
 
 # Test with an image
