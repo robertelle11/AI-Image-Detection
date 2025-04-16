@@ -6,7 +6,7 @@ from PIL import Image
 from io import BytesIO
 
 # Google Cloud API Key
-API_KEY = "Place api key here"
+API_KEY = "AIzaSyBMcY-_vzB7WycgYPmxcBf8CZxGCTi92DM"
 
 def detect_landmark(image_path):
     """Detects landmarks in an image using Google Vision API."""
@@ -108,5 +108,5 @@ def convert_to_degrees(value):
         return None
 
 # Test with an image
-image_path = "train/0/0/2/002a636eb80ee968.jpg"
+image_path = "../train/0/0/2/002a636eb80ee968.jpg"
 detect_landmark(image_path)
