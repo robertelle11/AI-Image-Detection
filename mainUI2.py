@@ -1,14 +1,15 @@
-'''
-
-import streamlit as st
-import gld_test
-import google_vision_test
-import gps_plot
-import gsv_test
-import pandas as pd
-from urllib.error import URLError
-import pydeck as pdk
-import requests
+try:
+    import streamlit as st
+    from tests import gld_test
+    from tests import google_vision_test
+    from scripts import gps_plot
+    from tests import gsv_test
+    import pandas as pd
+    from urllib.error import URLError
+    import pydeck as pdk
+    import requests
+except ImportError as e:
+    st.error(f"An error occurred while importing modules: {e}")
 
 @st.cache_data
 def from_data_file(filename):
@@ -89,5 +90,3 @@ except URLError as e:
     """
         % e.reason
     )
-
-''''''    

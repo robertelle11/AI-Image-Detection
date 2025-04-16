@@ -1,11 +1,11 @@
-# mainUIs.py
-
-'''
-import streamlit as st
-from PIL import Image
-import gps_plot as predict_location
-import gsv_test as analyze_landmark
-from landmarks_dataset import map_landmark_id
+try:
+    import streamlit as st
+    from PIL import Image
+    import gps_plot as predict_location
+    from tests import gsv_test as analyze_landmark
+    from landmarks_dataset import map_landmark_id
+except ImportError as e:
+    st.error(f"An error occurred while importing modules: {e}")
 
 st.set_page_config(page_title="AI Image Geolocation", layout="centered")
 st.title("🌍 AI-Powered Image Geolocation")
@@ -32,4 +32,3 @@ if uploaded_file:
             st.markdown(f"**Coordinates:** {l_lat}, {l_lon}")
 
         st.map({"lat": [lat], "lon": [lon]})
-'''

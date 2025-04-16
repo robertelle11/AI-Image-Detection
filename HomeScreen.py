@@ -1,17 +1,18 @@
-# UI For Project
-import streamlit as st
-import pandas as pd
-import pydeck as pdk
-import requests
-import json
-import os
-#from tests import gld_test
-#from tests import google_vision_test
-#from tests import gsv_test
-#from scripts import filter_images
-#from scripts import gps_plot
-#import train_model
-
+try:
+    import streamlit as st
+    import pandas as pd
+    import pydeck as pdk
+    import requests
+    import json
+    import os
+    from tests import gld_test
+    from tests import google_vision_test
+    from tests import gsv_test
+    from scripts import filter_images
+    from scripts import gps_plot
+    import train_model
+except ImportError as e:
+    st.error(f"An error occurred while importing modules: {e}")
 
 st.set_page_config(page_title="AI Image Geolocation", layout="centered")
 st.title("🌍 AI-Powered Image Geolocation")
