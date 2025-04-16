@@ -4,14 +4,14 @@ import glob
 import requests
 
 # Load metadata
-train_df = pd.read_csv("train.csv")  # Image ID → Landmark ID
-label_df = pd.read_csv("train_label_to_category.csv")  # Landmark ID → Category (Wikimedia URL)
+train_df = pd.read_csv("../spreadsheets/train.csv")  # Image ID → Landmark ID
+label_df = pd.read_csv("../spreadsheets/train_label_to_category.csv")  # Landmark ID → Category (Wikimedia URL)
 
 # Create mappings
 id_to_landmark = dict(zip(train_df["id"], train_df["landmark_id"]))
 landmark_to_category = dict(zip(label_df["landmark_id"], label_df["category"]))
 
-def find_image(image_id, base_dir="train"):
+def find_image(image_id, base_dir="../train"):
     """Find the image file path based on the image ID."""
     subdir = os.path.join(base_dir, image_id[0], image_id[1], image_id[2])  # Directory structure
     search_pattern = os.path.join(subdir, f"{image_id}.jpg")

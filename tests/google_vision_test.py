@@ -4,9 +4,10 @@ import piexif
 import piexif.helper
 from PIL import Image
 from io import BytesIO
+import os  # Import os to access environment variables
 
-# Google Cloud API Key
-API_KEY = "AIzaSyBMcY-_vzB7WycgYPmxcBf8CZxGCTi92DM"
+# Load Google Cloud API Key from environment variable
+API_KEY = os.getenv("GOOGLE_CLOUD_API_KEY")
 
 def detect_landmark(image_path):
     """Detects landmarks in an image using Google Vision API."""
