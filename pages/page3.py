@@ -9,7 +9,7 @@ from train_model import GeoClassifier
 
 # App config
 st.set_page_config(layout="wide")
-st.title("🧭 Image-based Geolocation Prediction")
+st.title("🧽 Image-based Geolocation Prediction")
 
 # Load trained model
 @st.cache_resource
@@ -39,14 +39,17 @@ uploaded_images = st.file_uploader(
 if uploaded_images:
     predictions = []
     for img_file in uploaded_images:
-        file_bytes = img_file.read()  # Read once!
+        file_bytes = img_file.read()
         img = Image.open(img_file).convert("RGB")
         tensor = transform(img).unsqueeze(0).to(device)
 
         with torch.no_grad():
             output = model(tensor)
-        lat = output[0, 0].item()
-        lon = output[0, 1].item()
+
+        # Expand predictions to full latitude and longitude range
+        lat = output[0, 0].item() * 90     # [-1, 1] → [-90, 90]
+        lon = output[0, 1].item() * 180    # [-1, 1] → [-180, 180]
+
 
         # Encode the image for tooltip
         extension = img_file.name.split('.')[-1].lower()
@@ -73,13 +76,13 @@ if uploaded_images:
             view_state = pdk.ViewState(
                 latitude=df["lat"].mean(),
                 longitude=df["long"].mean(),
-                zoom=4,
-                pitch=45
+                zoom=3,
+                pitch=0
             )
 
             tooltip = {
                 "html": """
-                    <div style="width: 220px">
+                    <div style="width: 300px">
                         <b>{file_path}</b><br/>
                         <small>Lat: {lat}<br/>Lon: {long}</small><br/>
                         <img src="{image_url}" style="width: 100%; border-radius: 4px;" />
@@ -88,17 +91,19 @@ if uploaded_images:
                 "style": {
                     "backgroundColor": "white",
                     "color": "black",
-                    "fontSize": "12px",
-                    "padding": "10px"
+                    "fontSize": "13px",
+                    "padding": "12px"
                 }
             }
+
 
             layer = pdk.Layer(
                 "ScatterplotLayer",
                 data=df,
                 get_position='[long, lat]',
-                get_color=[0, 128, 255, 200],
-                get_radius=800,
+                get_color=[255, 0, 0, 180],  # Bright red dots
+                radiusMinPixels=5,
+                radiusMaxPixels=50,
                 pickable=True
             )
 
