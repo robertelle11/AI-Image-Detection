@@ -1,135 +1,113 @@
 import streamlit as st
-import pandas as pd
+import torch
+from PIL import Image
+from torchvision import transforms
 import pydeck as pdk
 import base64
-import os
+import pandas as pd
+from train_model import GeoClassifier
 
+# App config
 st.set_page_config(layout="wide")
-st.title("📍 Geotagged Images")
+st.title("🧭 Image-based Geolocation Prediction")
 
-distinct_colors = [
-    [255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255],
-    [255, 255, 0, 255], [255, 0, 255, 255], [0, 255, 255, 255],
-    [255, 165, 0, 255], [128, 0, 128, 255], [0, 128, 128, 255],
-    [255, 255, 255, 255]
-]
+# Load trained model
+@st.cache_resource
+def load_model():
+    model = GeoClassifier()
+    model.load_state_dict(torch.load("model_weights.pth", map_location="cpu"))
+    model.eval()
+    return model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
-uploaded_csvs = st.file_uploader(
-    "📄 Upload one or more CSV files (columns: `file_path`, `lat`, `long`)",
-    type='csv',
-    accept_multiple_files=True
-)
+model = load_model()
+device = next(model.parameters()).device
+
+# Image preprocessing
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                         std=[0.229, 0.224, 0.225])
+])
 
 uploaded_images = st.file_uploader(
-    "🖼️ Upload images (select all in folder)",
+    "📷 Upload images for location prediction",
     type=["jpg", "jpeg", "png", "webp"],
     accept_multiple_files=True
 )
 
-# Dictionary based on numeric filename match
-image_dict = {}
 if uploaded_images:
-    for img in uploaded_images:
-        filename = os.path.basename(img.name).lower()
-        base_id = os.path.splitext(filename)[0]  # e.g. "1001.jpg" → "1001"
-        extension = filename.split('.')[-1].lower()
+    predictions = []
+    for img_file in uploaded_images:
+        file_bytes = img_file.read()  # Read once!
+        img = Image.open(img_file).convert("RGB")
+        tensor = transform(img).unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            output = model(tensor)
+        lat = output[0, 0].item()
+        lon = output[0, 1].item()
+
+        # Encode the image for tooltip
+        extension = img_file.name.split('.')[-1].lower()
         mime = f"image/{'jpeg' if extension in ['jpg', 'jpeg'] else extension}"
-        encoded = base64.b64encode(img.read()).decode()
-        image_dict[base_id] = f"data:{mime};base64,{encoded}"
+        encoded = base64.b64encode(file_bytes).decode()
+        image_url = f"data:{mime};base64,{encoded}"
 
-if uploaded_csvs:
-    layers = []
-    latitudes = []
-    longitudes = []
-    color_index = 0
-    total_points = 0
+        predictions.append({
+            "file_path": img_file.name,
+            "lat": lat,
+            "long": lon,
+            "image_url": image_url
+        })
 
-    for csv in uploaded_csvs:
-        try:
-            df = pd.read_csv(csv)
+    if predictions:
+        df = pd.DataFrame(predictions)
+        df = df[(df["lat"].between(-90, 90)) & (df["long"].between(-180, 180))]
 
-            if {'file_path', 'lat', 'long'}.issubset(df.columns):
-                df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
-                df['long'] = pd.to_numeric(df['long'], errors='coerce')
-                df = df.dropna(subset=['lat', 'long'])
+        if df.empty:
+            st.warning("⚠️ All predictions were out of bounds. Try retraining your model or adjusting input images.")
+        else:
+            st.success(f"✅ Processed {len(df)} image(s) with valid coordinates")
 
-                if not df.empty:
-                    # Normalize file_path and match to image_dict by numeric ID
-                    df['file_path'] = df['file_path'].astype(str)
-                    df['image_url'] = df['file_path'].apply(lambda x: image_dict.get(x.strip(), ""))
+            view_state = pdk.ViewState(
+                latitude=df["lat"].mean(),
+                longitude=df["long"].mean(),
+                zoom=4,
+                pitch=45
+            )
 
-                    # Add display flags for conditional rendering
-                    df['img_display'] = df['image_url'].apply(lambda x: 'block' if x else 'none')
-                    df['text_display'] = df['image_url'].apply(lambda x: 'none' if x else 'block')
-
-                    # Show warning if any images not found
-                    missing = df[df['image_url'] == ""]
-                    if not missing.empty:
-                        st.warning(f"⚠️ {len(missing)} images missing for `{csv.name}`")
-                        st.dataframe(missing[['file_path']])
-
-                    # Assign distinct color
-                    color = distinct_colors[color_index % len(distinct_colors)]
-                    color_index += 1
-
-                    layer = pdk.Layer(
-                        "ScatterplotLayer",
-                        data=df,
-                        get_position='[long, lat]',
-                        get_color=color,
-                        get_radius=800,
-                        pickable=True
-                    )
-                    layers.append(layer)
-
-                    latitudes.extend(df['lat'].tolist())
-                    longitudes.extend(df['long'].tolist())
-                    total_points += len(df)
-
-                    st.success(f"✅ Loaded {csv.name} ({len(df)} points)")
-
-                else:
-                    st.warning(f"⚠️ No valid coordinates in {csv.name}")
-            else:
-                st.error(f"❌ {csv.name} is missing required columns.")
-        except Exception as e:
-            st.error(f"❌ Error loading {csv.name}: {e}")
-
-    if layers and latitudes and longitudes:
-        avg_lat = sum(latitudes) / len(latitudes)
-        avg_long = sum(longitudes) / len(longitudes)
-
-        view_state = pdk.ViewState(
-            latitude=avg_lat,
-            longitude=avg_long,
-            zoom=6,
-            pitch=45
-        )
-
-        tooltip = {
-            "html": """
-                <div style="width: 220px">
-                    <b>{file_path}</b><br/>
-                    <img src="{image_url}" style="width: 100%; border-radius: 4px; display: {img_display};" />
-                    <i style="display: {text_display};">No image found</i>
-                </div>
-            """,
-            "style": {
-                "backgroundColor": "white",
-                "color": "black",
-                "fontSize": "12px",
-                "padding": "10px"
+            tooltip = {
+                "html": """
+                    <div style="width: 220px">
+                        <b>{file_path}</b><br/>
+                        <small>Lat: {lat}<br/>Lon: {long}</small><br/>
+                        <img src="{image_url}" style="width: 100%; border-radius: 4px;" />
+                    </div>
+                """,
+                "style": {
+                    "backgroundColor": "white",
+                    "color": "black",
+                    "fontSize": "12px",
+                    "padding": "10px"
+                }
             }
-        }
 
-        st.write(f"🧭 Total points plotted: `{total_points}`")
-        st.pydeck_chart(pdk.Deck(
-            map_style='mapbox://styles/mapbox/streets-v11',
-            initial_view_state=view_state,
-            layers=layers,
-            tooltip=tooltip,
-            height=850,
-        ))
+            layer = pdk.Layer(
+                "ScatterplotLayer",
+                data=df,
+                get_position='[long, lat]',
+                get_color=[0, 128, 255, 200],
+                get_radius=800,
+                pickable=True
+            )
 
+            st.pydeck_chart(pdk.Deck(
+                map_style='mapbox://styles/mapbox/streets-v11',
+                initial_view_state=view_state,
+                layers=[layer],
+                tooltip=tooltip,
+                height=850
+            ))
 else:
-    st.info("📂 Upload CSV files and matching images to display points.")
+    st.info("🖼️ Upload image(s) above to begin location predictions.")
