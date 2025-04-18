@@ -1,4 +1,4 @@
-'''
+"""
 
 import streamlit as st
 import gld_test
@@ -84,10 +84,3 @@ try:
 except URLError as e:
     st.error(
         """
-        **This demo requires internet access.**
-        Connection error: %s
-    """
-        % e.reason
-    )
-
-''''''    
