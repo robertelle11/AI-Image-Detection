@@ -1,20 +1,36 @@
 import logging
 import torch
 import torch.nn as nn
-from torchvision.models import resnet18
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader, Subset
-from PIL import Image
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+import seaborn as sns
+from torchvision.models import resnet18
+from torchvision import transforms
+from torch.utils.data import Dataset, DataLoader, Subset
+from PIL import Image
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from collections import Counter
-import seaborn as sns
+
+# Configuration
+CSV_PATH = r"D:\4999 Data\cluster_balanced.csv"
+BATCH_SIZE = 50
+LEARNING_RATE_HEAD = 1e-4
+LEARNING_RATE_UNFREEZE = 1e-5
+WEIGHT_DECAY = 1e-4
+LABEL_SMOOTHING = 0.1
+NUM_EPOCHS = 15
+VAL_RATIO = 0.2
+NUM_WORKERS = 6
+NUM_CLUSTERS = 21
+PATIENCE = 3
+PLOTS_DIR = "plots"
+WEIGHTS_PATH = "cluster_weights.pth"
+MODEL_PATH = "cluster_model.pth"
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,9 +52,7 @@ class GeoDataset(Dataset):
     def __getitem__(self, idx):
         img_path = self.data.iloc[idx, 0]
         img = Image.open(img_path).convert("RGB")
-
-        if self.transform:
-            img = self.transform(img)
+        img = self.transform(img)
 
         cluster_label = self.data.iloc[idx, 3]
 
@@ -66,24 +80,21 @@ class ClusterClassifier(nn.Module):
         )
 
     def forward(self, x):
-        cluster_logits = self.resnet(x)
-
-        return cluster_logits
+        return self.resnet(x) # Cluster logits
     
 def main():
-    csv_path = r"D:\4999 Data\cluster_balanced.csv"
-    df = pd.read_csv(csv_path)
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+
+    df = pd.read_csv(CSV_PATH)
     all_labels = df['cluster'].tolist()
     indices = list(range(len(all_labels)))
-    dataset = GeoDataset(csv_path)
 
-    batch_size = 50
-    num_epochs = 15
+    dataset = GeoDataset(CSV_PATH)
 
     # Stratified split
     train_indices, val_indices = train_test_split(
         indices,
-        test_size=0.2,
+        test_size=VAL_RATIO,
         stratify=all_labels,
         random_state=10
     )
@@ -91,22 +102,16 @@ def main():
     train_subset = Subset(dataset, train_indices)
     val_subset = Subset(dataset, val_indices)
 
-    train_labels = [all_labels[i] for i in train_indices]
-    val_labels = [all_labels[i] for i in val_indices]
-
-    print("Train label counts:", Counter(train_labels))
-    print("Val label counts:", Counter(val_labels))
-
     # Dataloaders
-    train_dataloader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=6, drop_last=True)
-    val_dataloader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=6, drop_last=True)
+    train_dataloader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True)
+    val_dataloader = DataLoader(val_subset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, drop_last=True)
     logger.info(f"Number of batches in train_dataloader: {len(train_dataloader)}")
     logger.info(f"Number of batches in val_dataloader: {len(val_dataloader)}")
 
     # Try to use GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ClusterClassifier(num_clusters=21).to(device)
-    logger.info(f"Using device: {device}")  # Should print 'cuda:0' if model is on GPU
+    model = ClusterClassifier(NUM_CLUSTERS).to(device)
+    logger.info(f"Using device: {device}")  # Should print 'cuda' if model is on GPU
 
     # Load the cluster labels from the CSV file
     train_indicies = train_subset.indices
@@ -123,32 +128,29 @@ def main():
     class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32).to(device)
 
     # Loss function
-    criterion = nn.CrossEntropyLoss(weight=class_weights_tensor, label_smoothing=0.1)
+    criterion = nn.CrossEntropyLoss(weight=class_weights_tensor, label_smoothing=LABEL_SMOOTHING)
 
-    param_group = [
-    {'params': model.resnet.layer4.parameters(), 'lr': 1e-5},
-    {'params': model.resnet.fc.parameters(), 'lr': 1e-4, 'weight_decay': 1e-4}
-    ]
     # Optimizer
-    optimizer = torch.optim.AdamW(param_group)
+    optimizer = torch.optim.AdamW([
+        {'params': model.resnet.layer4.parameters(), 'lr': LEARNING_RATE_UNFREEZE},
+        {'params': model.resnet.fc.parameters(), 'lr': LEARNING_RATE_HEAD, 'weight_decay': WEIGHT_DECAY}
+    ])
 
-    train_losses = []
-    val_losses = []
-    train_accuracies = []
-    val_accuracies = []
+    train_losses, val_losses = [], []
+    train_accuracies, val_accuracies = [], []
+    final_val_preds, final_val_targets = [], []
 
     best_val_loss = float('inf')
-    patience = 3
     epochs_no_improve = 0
 
     # Training loop
-    for epoch in range(num_epochs):
+    for epoch in range(NUM_EPOCHS):
         model.train()
         epoch_train_loss = 0.0
-        start_time = time.time()
         correct_train = 0
         total_train = 0
-        logger.info(f"Epoch {epoch + 1}/{num_epochs} started")
+        start_time = time.time()
+        logger.info(f"Epoch {epoch + 1}/{NUM_EPOCHS} started")
 
         for images, targets in train_dataloader:
             images, targets = images.to(device), targets.to(device)
@@ -167,7 +169,7 @@ def main():
 
             epoch_train_loss += loss.item()
 
-             # Compute training accuracy
+            # Compute training accuracy
             predicted = torch.argmax(cluster_probs, dim=1)
             correct_train += (predicted == targets).sum().item()
             total_train += targets.size(0)
@@ -186,8 +188,8 @@ def main():
         epoch_val_loss = 0.0
         correct_val = 0
         total_val = 0
-        all_preds = []
-        all_targets = []
+        all_preds, all_targets = [], []
+
         # Disable gradient calculation for validation
         with torch.no_grad():
             for images, targets in val_dataloader:
@@ -205,6 +207,10 @@ def main():
                 # Collect for classification report
                 all_preds.extend(predicted.cpu().numpy())
                 all_targets.extend(targets.cpu().numpy())
+
+                if epoch + 1 == NUM_EPOCHS or (epochs_no_improve >= PATIENCE):
+                    final_val_preds = all_preds.copy()
+                    final_val_targets = all_targets.copy()
 
         # Store validation loss for this epoch
         val_loss = epoch_val_loss / len(val_dataloader)
@@ -231,23 +237,20 @@ def main():
             epochs_no_improve = 0
         else:
             epochs_no_improve += 1
-            if epochs_no_improve >= patience:
+            if epochs_no_improve >= PATIENCE:
                 logger.info("Early stopping triggered.")
                 break
 
     logger.info("Training complete!")
 
     # Save weights
-    weight_path = "cluster_weights.pth"
-    torch.save(model.state_dict(), weight_path)
-    logger.info(f"Weights saved as {weight_path}")
+    torch.save(model.state_dict(), WEIGHTS_PATH)
+    logger.info(f"Weights saved as {WEIGHTS_PATH}")
 
     # Save model
-    model_path = "cluster_model.pth"
-    torch.save(model, model_path)
-    logger.info(f"Model saved as {model_path}")
+    torch.save(model, MODEL_PATH)
+    logger.info(f"Model saved as {MODEL_PATH}")
 
-    os.makedirs("plots", exist_ok=True)
     # Plotting the training and validation loss curves
     plt.figure(figsize=(10, 6))
     plt.plot(range(len(train_losses)), train_losses, label="Training Loss", color='blue')
@@ -258,7 +261,7 @@ def main():
     plt.legend()
     plt.grid(True)
 
-    plot_path = "plots/cluster_loss_curve.png"
+    plot_path = os.path.join(PLOTS_DIR, "cluster_loss_curve.png")
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     logger.info(f"Saved training/validation loss plot to {plot_path}")
@@ -272,26 +275,13 @@ def main():
     plt.legend()
     plt.grid(True)
 
-    acc_plot_path = "plots/cluster_accuracy_curve.png"
-    plt.savefig(acc_plot_path, dpi=300, bbox_inches='tight')
+    plot_path = os.path.join(PLOTS_DIR, "cluster_accuracy_curve.png")
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
-    logger.info(f"Saved training/validation accuracy plot to {acc_plot_path}")
-
-     # Run validation one final time after training
-    model.eval()
-    all_preds = []
-    all_targets = []
-
-    with torch.no_grad():
-        for images, targets in val_dataloader:
-            images, targets = images.to(device), targets.to(device)
-            outputs = model(images)
-            predicted = torch.argmax(outputs, dim=1)
-            all_preds.extend(predicted.cpu().numpy())
-            all_targets.extend(targets.cpu().numpy())
+    logger.info(f"Saved training/validation accuracy plot to {plot_path}")
 
     # Confusion matrix (after final epoch)
-    cm = confusion_matrix(all_targets, all_preds)
+    cm = confusion_matrix(final_val_targets, final_val_preds)
     plt.figure(figsize=(12, 10))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=[str(i) for i in range(21)],
@@ -301,12 +291,10 @@ def main():
     plt.title("Confusion Matrix (Validation Set - Final Epoch)")
     plt.tight_layout()
 
-    cm_path = "plots/confusion_matrix.png"
-    plt.savefig(cm_path, dpi=300)
+    plot_path = os.path.join(PLOTS_DIR, "confusion_matrix.png")
+    plt.savefig(plot_path, dpi=300)
     plt.close()
-    logger.info(f"Saved confusion matrix plot to {cm_path}")
-
-
+    logger.info(f"Saved confusion matrix plot to {plot_path}")
 
 if __name__ == "__main__":
     main()

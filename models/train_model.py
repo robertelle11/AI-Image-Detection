@@ -1,22 +1,30 @@
 import logging
 import torch
 import torch.nn as nn
-from torchvision.models import resnet50
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader, random_split
-from PIL import Image
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import time
+from torchvision.models import resnet50
+from torchvision import transforms
+from torch.utils.data import Dataset, DataLoader, random_split
+from PIL import Image
 
-# This script is for training a ResNet18 model on a dataset of images with latitude and longitude labels.
-# The dataset is assumed to be in a CSV file with the first column as image paths and the second and third columns as latitude and longitude respectively.
+# Configuration
+CSV_PATH = r"D:\4999 Data\cluster_balanced.csv"
+BATCH_SIZE = 50
+LEARNING_RATE = 0.0001
+WEIGHT_DECAY = 0.00001
+NUM_EPOCHS = 10
+TRAIN_RATIO = 0.8
+NUM_WORKERS = 6
+PLOTS_DIR = "plots"
+WEIGHTS_PATH = "model_weights.pth"
+MODEL_PATH = "geolocation_model.pth"
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
 
 class GeoDataset(Dataset):
     def __init__(self, csv_path, transform=None):
@@ -40,9 +48,7 @@ class GeoDataset(Dataset):
     def __getitem__(self, idx):
         img_path = self.data.iloc[idx, 0]
         img = Image.open(img_path).convert("RGB")
-
-        if self.transform:
-            img = self.transform(img)
+        img = self.transform(img)
 
         lat, lon = self.data.iloc[idx, 1], self.data.iloc[idx, 2]
 
@@ -118,50 +124,43 @@ class GeoLocator(nn.Module):
         return self.resnet(x)
 
 def main():
-    csv_path = r"D:\4999 Data\cluster_balanced.csv"
-    dataset = GeoDataset(csv_path)
+    os.makedirs(PLOTS_DIR, exist_ok=True)
 
-    train_ratio = 0.8
-    batch_size = 50
-    learning_rate = 0.0001
-    num_epochs = 10
+    dataset = GeoDataset(CSV_PATH)
 
     # Split dataset into training and validation subsets
-    train_size = int(train_ratio * len(dataset))
+    train_size = int(TRAIN_RATIO * len(dataset))
     val_size = int(len(dataset)) - train_size
     train_subset, val_subset = random_split(dataset, [train_size, val_size])
 
     # Dataloaders
-    train_dataloader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=6, drop_last=True)
-    val_dataloader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=6, drop_last=True)
+    train_dataloader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True)
+    val_dataloader = DataLoader(val_subset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, drop_last=True)
     logger.info(f"Number of batches in train_dataloader: {len(train_dataloader)}")
     logger.info(f"Number of batches in val_dataloader: {len(val_dataloader)}")
 
     # Try to use GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = GeoLocator().to(device)
-    logger.info(f"Using device: {device}")  # Should print 'cuda:0' if model is on GPU
+    logger.info(f"Using device: {device}")  # Should print 'cuda' if model is on GPU
 
     # Loss function
     criterion = HaversineLoss(dataset.lat_mean, dataset.lon_mean, dataset.lat_std, dataset.lon_std)
 
     # Optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.00001)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
-    train_losses = []
-    val_losses = []
-
+    train_losses, val_losses = [], []
     train_mae_lat_list, train_mae_lon_list = [], []
     val_mae_lat_list, val_mae_lon_list = [], []
 
     # Training loop
-    for epoch in range(num_epochs):
+    for epoch in range(NUM_EPOCHS):
         model.train()
         epoch_train_loss = 0.0
-        all_train_preds = []
-        all_train_targets = []
+        all_train_preds, all_train_targets = [], []
         start_time = time.time()
-        logger.info(f"Epoch {epoch + 1}/{num_epochs} started")
+        logger.info(f"Epoch {epoch + 1}/{NUM_EPOCHS} started")
 
         for images, targets in train_dataloader:
             images, targets = images.to(device), targets.to(device)
@@ -230,27 +229,24 @@ def main():
     logger.info("Training complete!")
 
     # Save weights
-    weight_path = "model_weights.pth"
-    torch.save(model.state_dict(), weight_path)
-    logger.info(f"Weights saved as {weight_path}")
+    torch.save(model.state_dict(), WEIGHTS_PATH)
+    logger.info(f"Weights saved as {WEIGHTS_PATH}")
 
     # Save model
-    model_path = "geolocation_model.pth"
-    torch.save(model, model_path)
-    logger.info(f"Model saved as {model_path}")
+    torch.save(model, MODEL_PATH)
+    logger.info(f"Model saved as {MODEL_PATH}")
 
-    os.makedirs("plots", exist_ok=True)
     # Plotting the training and validation loss curves
     plt.figure(figsize=(10, 6))
-    plt.plot(range(num_epochs), train_losses, label="Training Loss", color='blue')
-    plt.plot(range(num_epochs), val_losses, label="Validation Loss", color='orange')
+    plt.plot(range(NUM_EPOCHS), train_losses, label="Training Loss", color='blue')
+    plt.plot(range(NUM_EPOCHS), val_losses, label="Validation Loss", color='orange')
     plt.title("Training and Validation Loss over Epochs")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
     plt.grid(True)
 
-    plot_path = "plots/loss_curve.png"
+    plot_path = os.path.join(PLOTS_DIR, "loss_plot.png")
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     logger.info(f"Saved training/validation loss plot to {plot_path}")
@@ -274,7 +270,7 @@ def main():
     plt.legend()
     plt.grid(True)
 
-    plot_path = "plots/mae_degrees.png"
+    plot_path = os.path.join(PLOTS_DIR, "mae_degrees.png")
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     logger.info(f"Saved MAE plot to {plot_path}")

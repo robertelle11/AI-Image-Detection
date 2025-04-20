@@ -1,20 +1,34 @@
 import logging
 import torch
 import torch.nn as nn
-from torchvision.models import resnet18
-from torchvision.models import resnet50
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader, random_split, Subset
-from PIL import Image
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
-import numpy as np
 import time
-from sklearn.metrics import r2_score
+from torchvision.models import resnet18
+from torchvision import transforms
+from torch.utils.data import Dataset, DataLoader, Subset
+from PIL import Image
 from sklearn.model_selection import train_test_split
 from collections import Counter
 from cluster_model import ClusterClassifier
+
+# Configuration
+CSV_PATH = r"D:\4999 Data\cluster_balanced.csv"
+BATCH_SIZE = 50
+LEARNING_RATE_HEAD = 1e-4
+LEARNING_RATE_GATE = 1e-4
+LEARNING_RATE_UNFREEZE = 1e-5
+WEIGHT_DECAY_HEAD = 1e-4
+WEIGHT_DECAY_GATE = 1e-4
+NUM_EPOCHS = 15
+VAL_RATIO = 0.2
+NUM_WORKERS = 6
+NUM_CLUSTERS = 21
+PATIENCE = 3
+PLOTS_DIR = "plots"
+CLASSIFIER_WEIGHTS_PATH = "cluster_weights.pth"
+WEIGHTS_PATH = "regressor_weights_with_metadata.pth"
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -170,23 +184,21 @@ def save_model_with_metadata(model, dataset, file_path):
     torch.save(model_state_dict, file_path)
 
 def main():
-    csv_path = r"D:\4999 Data\cluster_balanced.csv"
-    dataset = GeoDataset(csv_path)
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+
+    dataset = GeoDataset(CSV_PATH)
     all_labels = dataset.data['cluster'].tolist()
     indices = list(range(len(dataset)))
 
-    c_model = ClusterClassifier(num_clusters=21)
-    c_model.load_state_dict(torch.load("cluster_weights.pth"))    
-    c_model.eval()
+    classifier_model = ClusterClassifier(NUM_CLUSTERS)
+    classifier_model.load_state_dict(torch.load(CLASSIFIER_WEIGHTS_PATH))    
+    classifier_model.eval()
     logger.info("Cluster model loaded")
-
-    batch_size = 50
-    num_epochs = 15
 
     # Stratified split
     train_indices, val_indices = train_test_split(
         indices,
-        test_size=0.2,
+        test_size=VAL_RATIO,
         stratify=all_labels,
         random_state=10
     )
@@ -194,15 +206,9 @@ def main():
     train_subset = Subset(dataset, train_indices)
     val_subset = Subset(dataset, val_indices)
 
-    train_labels = [all_labels[i] for i in train_indices]
-    val_labels = [all_labels[i] for i in val_indices]
-
-    print("Train label counts:", Counter(train_labels))
-    print("Val label counts:", Counter(val_labels))
-
     # Dataloaders
-    train_dataloader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=6, drop_last=True)
-    val_dataloader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=6, drop_last=True)
+    train_dataloader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True)
+    val_dataloader = DataLoader(val_subset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, drop_last=True)
     logger.info(f"Number of batches in train_dataloader: {len(train_dataloader)}")
     logger.info(f"Number of batches in val_dataloader: {len(val_dataloader)}")
 
@@ -216,28 +222,24 @@ def main():
         lon_mean=torch.tensor(dataset.lon_mean, dtype=torch.float32),
         lon_std=torch.tensor(dataset.lon_std, dtype=torch.float32)
     ).to(device)
-    c_model.to(device)
-    logger.info(f"Using device: {device}")  # Should print 'cuda:0' if model is on GPU
+    classifier_model.to(device)
+    logger.info(f"Using device: {device}")  # Should print 'cuda' if model is on GPU
 
     # Loss function
     criterion = HaversineLoss(dataset.lat_mean, dataset.lon_mean, dataset.lat_std, dataset.lon_std)
 
-    param_group = [
-        {'params': model.feature_extractor.parameters(), 'lr': 0.1e-5},
-        {'params': model.gate.parameters(), 'lr': 1e-4, 'weight_decay': 1e-4},
-        {'params': model.regression_head.parameters(), 'lr': 1e-4, 'weight_decay': 1e-4}
-    ]
     # Optimizer
-    optimizer = torch.optim.AdamW(param_group)
+    optimizer = torch.optim.AdamW([
+        {'params': model.feature_extractor.parameters(), 'lr': LEARNING_RATE_UNFREEZE},
+        {'params': model.gate.parameters(), 'lr': LEARNING_RATE_GATE, 'weight_decay': WEIGHT_DECAY_GATE},
+        {'params': model.regression_head.parameters(), 'lr': LEARNING_RATE_HEAD, 'weight_decay': WEIGHT_DECAY_HEAD}
+    ])
 
-    train_losses = []
-    val_losses = []
-
+    train_losses, val_losses = [], []
     train_mae_lat_list, train_mae_lon_list = [], []
     val_mae_lat_list, val_mae_lon_list = [], []
 
     best_val_loss = float('inf')
-    patience = 3
     epochs_no_improve = 0
 
     # Sanity check: print the cluster means
@@ -245,19 +247,19 @@ def main():
     print("Cluster means:", dataset.cluster_means)
 
     # Training loop
-    for epoch in range(num_epochs):
+    for epoch in range(NUM_EPOCHS):
         model.train()
         epoch_train_loss = 0.0
         all_train_preds = []
         all_train_targets = []
         start_time = time.time()
-        logger.info(f"Epoch {epoch + 1}/{num_epochs} started")
+        logger.info(f"Epoch {epoch + 1}/{NUM_EPOCHS} started")
 
         for images, targets in train_dataloader:
             images, targets = images.to(device), targets.to(device)
 
             with torch.no_grad():
-                cluster_probs = c_model(images)
+                cluster_probs = classifier_model(images)
 
             # Reset gradients
             optimizer.zero_grad()
@@ -294,15 +296,14 @@ def main():
         # Validate the model after each epoch
         model.eval()
         epoch_val_loss = 0.0
-        all_val_preds = []
-        all_val_targets = []
+        all_val_preds, all_val_targets = [], []
 
         # Disable gradient calculation for validation
         with torch.no_grad():
             for images, targets in val_dataloader:
                 images, targets = images.to(device), targets.to(device)
 
-                cluster_probs = c_model(images)
+                cluster_probs = classifier_model(images)
 
                 pred_coords = model(images, cluster_probs)
 
@@ -334,18 +335,16 @@ def main():
             epochs_no_improve = 0
         else:
             epochs_no_improve += 1
-            if epochs_no_improve >= patience:
+            if epochs_no_improve >= PATIENCE:
                 logger.info("Early stopping triggered.")
                 break
 
     logger.info("Training complete!")
 
     # Save model weights
-    weight_path = "regressor_weights_with_metadata.pth"
-    save_model_with_metadata(model, dataset, weight_path)
-    logger.info(f"Weights saved as {weight_path}")
+    save_model_with_metadata(model, dataset, WEIGHTS_PATH)
+    logger.info(f"Weights saved as {WEIGHTS_PATH}")
 
-    os.makedirs("plots", exist_ok=True)
     # Plotting the training and validation loss curves
     plt.figure(figsize=(10, 6))
     plt.plot(range(len(train_losses)), train_losses, label="Training Loss", color='blue')
@@ -356,7 +355,7 @@ def main():
     plt.legend()
     plt.grid(True)
 
-    plot_path = "plots/cnr_loss_curve.png"
+    plot_path = os.path.join(PLOTS_DIR, "cnr_loss_curve.png")
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     logger.info(f"Saved training/validation loss plot to {plot_path}")
@@ -374,7 +373,7 @@ def main():
     plt.legend()
     plt.grid(True)
 
-    plot_path = "plots/cnr_mae_degrees.png"
+    plot_path = os.path.join(PLOTS_DIR, "cnr_mae_degrees.png")
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
     plt.close()
     logger.info(f"Saved MAE plot to {plot_path}")
